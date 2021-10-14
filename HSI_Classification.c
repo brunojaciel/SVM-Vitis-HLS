@@ -144,42 +144,44 @@ int main(){
 
     printf("\n\n");
 
+    int i = 0, j = 0, k = 0, l = 0;
+
+    for (i = 0; i < n_classifiers; i++){
+
+    	fixedp_bias[i] = float2q(bias[i]);
+
+    	fixedp_kernelScale[i] = float2q(kernelScale[i]);
+
+    	for (j = 0; j < n_bands; j++){
+
+    		fixedp_sample[sample_index] = float2q(sample[i + band_index]);
+
+    		printf("%f,", sample[i + band_index]);
+
+    		band_index += 28;
+    		sample_index += 1;
+    	}
+
+    	band_index = 0;
+
+    	for (k = 0; k < svSizes[i]; k++){
+
+    		fixedp_alpha[sv_index] = float2q(alpha[sv_index]);
+    		fixedp_labels[sv_index] = float2q(labels[sv_index]);
+
+    		sv_index += 1;
+
+    		for(l = 0; l < n_bands; l++){
+
+    			fixedp_supportVector[supp_index] = float2q(supportVector[supp_index]);
+
+    			supp_index += 1;
+    		}
+    	}
+    }
+
     // Chamando função svm
-    svm(fixedp_bias, kernelScale, fixedp_sample, sample_index, sample, band_index, svSizes, fixedp_alpha, fixedp_labels, fixedp_kernelScale, sv_index, fixedp_supportVector, supp_index, supportVector, resultCode, alpha, labels, bias);
-
-		//Hamming distance
-	unsigned short int nOnes = n_classifiers;
-	unsigned short int count = 0;
-	unsigned short int pixelClass;
-
-	for (int i = 0; i < n_classes; i++)
-	{
-		count = 0;
-
-		for (int j = 0; j < n_classifiers; j++)
-		{
-			if (resultCode[j] != idCodes[i][j])
-			{
-				if (maskCodes[i][j] == 1)
-				{
-					count++;
-				}
-			}
-		}
-
-		if (count < nOnes)
-		{
-			nOnes = count;
-			pixelClass = i + 1;
-		}
-	}
-
-	//end = clock();
-	//cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-	//printf("Total time taken by CPU: %lf\n\n", cpu_time_used);
-
-	printf("\nPixel classified to class: %d", pixelClass);
-	printf("\n");
+    svm(fixedp_sample, svSizes, fixedp_alpha, fixedp_labels, fixedp_kernelScale, fixedp_supportVector, supportVector, resultCode, idCodes, maskCodes);
 
 	return 0;
 }

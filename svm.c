@@ -22,7 +22,8 @@ fixedp qlog( fixedp p_Base )
 		return 0xffffffff;
 
 	for ( dec=0 ; qabs( p_Base ) >= int2q(2) ; dec += int2q(1) )
-		p_Base = qdiv(p_Base, QLN_E);
+
+p_Base = qdiv(p_Base, QLN_E);
 
 	p_Base -= int2q(1);
 	z = p_Base;
@@ -69,50 +70,19 @@ fixedp qpow( fixedp p_Base, fixedp p_Power )
 		return qexp( qmul(p_Power, qlog(qabs( p_Base ))) );
 }
 
-void svm(fixedp fixedp_bias[n_classifiers],
-		float *kernelScale, fixedp fixedp_sample[n_classifiers * n_bands],
-		unsigned short int sample_index, float *sample, unsigned short int band_index,
-		unsigned short int svSizes[], fixedp fixedp_alpha[5532], fixedp fixedp_labels[5532],
-		fixedp fixedp_kernelScale[n_classifiers], unsigned short int sv_index,
-		fixedp fixedp_supportVector[5532 * n_bands], unsigned int supp_index,
-		float *supportVector, unsigned short int resultCode[n_classifiers],
-		float *alpha, float *labels, float *bias){
+void svm(fixedp fixedp_sample[n_classifiers * n_bands],
+		unsigned short int svSizes[],
+		fixedp fixedp_alpha[5532],
+		fixedp fixedp_labels[5532],
+		fixedp fixedp_kernelScale[n_classifiers],
+		fixedp fixedp_bias[n_classifiers],
+		fixedp fixedp_supportVector[5532 * n_bands],
+		unsigned short int resultCode[n_classifiers],
+		unsigned short int idCodes[n_classes][n_classifiers],
+		unsigned short int maskCodes[n_classes][n_classifiers]){
+
 
 	int i = 0, j = 0, k = 0, l = 0;
-
-	for (i = 0; i < n_classifiers; i++){
-
-	        fixedp_bias[i] = float2q(bias[i]);
-
-	        fixedp_kernelScale[i] = float2q(kernelScale[i]);
-
-	        for (j = 0; j < n_bands; j++){
-
-	            fixedp_sample[sample_index] = float2q(sample[i + band_index]);
-
-	            printf("%f,", sample[i + band_index]);
-
-	            band_index += 28;
-	            sample_index += 1;
-	        }
-
-	        band_index = 0;
-
-	        for (k = 0; k < svSizes[i]; k++){
-
-	            fixedp_alpha[sv_index] = float2q(alpha[sv_index]);
-	            fixedp_labels[sv_index] = float2q(labels[sv_index]);
-
-	            sv_index += 1;
-
-	            for(l = 0; l < n_bands; l++){
-
-	                fixedp_supportVector[supp_index] = float2q(supportVector[supp_index]);
-
-	                supp_index += 1;
-	            }
-	        }
-	    }
 
 	fixedp fixedp_euclideanOP;
 	fixedp fixedp_accumulator01 = int2q(0);
@@ -121,15 +91,16 @@ void svm(fixedp fixedp_bias[n_classifiers],
 	fixedp fixedp_alpha_label;
 	fixedp fixedp_power2 = int2q(2);
 
-	band_index = 0;
-	supp_index = 0;
-	sv_index = 0;
+	unsigned short int band_index = 0;
+	unsigned int supp_index = 0;
+	unsigned short int sv_index = 0;
 
     //start = clock();
 
 	for (i = 0; i < n_classifiers; i++){
         for (j = 0; j < svSizes[i]; j++){
             for (k = 0; k < n_bands; k++){
+//#pragma HLS PIPELINE
                 fixedp_euclideanOP = qsub(fixedp_sample[k + band_index], fixedp_supportVector[supp_index]);
 
                 fixedp_accumulator01 = qadd(fixedp_accumulator01, qmul(fixedp_euclideanOP, fixedp_euclideanOP));
@@ -173,4 +144,38 @@ void svm(fixedp fixedp_bias[n_classifiers],
     }
 
 	//return resultCode;
+
+	//Hamming distance
+	unsigned short int nOnes = n_classifiers;
+	unsigned short int count = 0;
+	unsigned short int pixelClass;
+
+	for (i = 0; i < n_classes; i++)
+	{
+		count = 0;
+
+		for (j = 0; j < n_classifiers; j++)
+		{
+			if (resultCode[j] != idCodes[i][j])
+			{
+				if (maskCodes[i][j] == 1)
+				{
+					count++;
+				}
+			}
+		}
+
+		if (count < nOnes)
+		{
+			nOnes = count;
+			pixelClass = i + 1;
+		}
+	}
+
+	//end = clock();
+	//cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
+	//printf("Total time taken by CPU: %lf\n\n", cpu_time_used);
+
+	printf("\nPixel classified to class: %d", pixelClass);
+	printf("\n");
 }
